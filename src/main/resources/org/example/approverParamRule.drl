@@ -1,0 +1,61 @@
+package com.sample
+ 
+import java.util.ArrayList;
+import java.util.List;
+import co.gm.InvoiceApprovalTier;
+import java.text.MessageFormat;
+import co.gm.RuleResult;
+ 
+rule "Approval param format rule"
+when
+    $paramFormat : String()
+    $invoiceTiers : ArrayList()
+    $ruleResult : RuleResult()
+then
+    $ruleResult.setRuleResult(formatInvoiceTiers($paramFormat, $invoiceTiers));
+end
+
+rule "Approval param parse rule"
+when
+    $params : ArrayList() 
+    $ruleResult : RuleResult()
+then
+    $ruleResult.setRuleResult(parseFormattedParam((String)$params.get(0), (String)$params.get(1)));
+end
+
+function String formatInvoiceTiers(String paramFormat, ArrayList invoiceTiers) {
+    System.out.println("Formatting >>> " + paramFormat);
+    StringBuffer buffer = new StringBuffer();
+    char ruleSeparator = paramFormat.charAt(paramFormat.length() - 1);
+    String[] values = paramFormat.split(String.valueOf(ruleSeparator));
+    String ruleString = values[1];
+    System.out.println(invoiceTiers);
+    for (Object tier : invoiceTiers) {
+      int approverLevel = ((InvoiceApprovalTier)tier).getApprovalLevel();
+      long approvalAmount = ((InvoiceApprovalTier)tier).getApprovalAmount();
+      buffer.append(MessageFormat.format(ruleString, approverLevel, String.valueOf(approvalAmount)));
+      buffer.append(ruleSeparator);
+    }
+    buffer.deleteCharAt(buffer.length() - 1);
+   	return buffer.toString();
+}
+
+
+function List<InvoiceApprovalTier> parseFormattedParam(String paramFormat, String formattedParam) {
+    System.out.println("firing formattedParam");
+    char ruleSeparator = paramFormat.charAt(paramFormat.length() - 1);
+    String[] values = paramFormat.split(String.valueOf(ruleSeparator));
+    String ruleString = values[1];
+    
+    String[] params = formattedParam.split(String.valueOf(ruleSeparator));
+    List<InvoiceApprovalTier> invoiceTiers = new ArrayList<InvoiceApprovalTier>();
+    for (String value : params) {
+      MessageFormat mf = new MessageFormat(ruleString);
+      Object[] objs = (Object[]) mf.parse(value);
+      InvoiceApprovalTier tier = InvoiceApprovalTier.newBuilder();
+      tier.setApprovalLevel(Integer.valueOf((String)objs[0]));
+      tier.setApprovalAmount(Long.valueOf((String) objs[1]));
+      invoiceTiers.add(tier);
+    }   	
+    return invoiceTiers;
+}
